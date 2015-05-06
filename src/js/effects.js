@@ -3,11 +3,13 @@
   ===========================*/
 s.effects = {
     fade: {
+        fadeIndex: null,
         setTranslate: function () {
             for (var i = 0; i < s.slides.length; i++) {
                 var slide = s.slides.eq(i);
                 var offset = slide[0].swiperSlideOffset;
-                var tx = -offset - s.translate;
+                var tx = -offset;
+                if (!s.params.virtualTranslate) tx = tx - s.translate;
                 var ty = 0;
                 if (!isH()) {
                     ty = tx;
@@ -16,6 +18,9 @@ s.effects = {
                 var slideOpacity = s.params.fade.crossFade ?
                         Math.max(1 - Math.abs(slide[0].progress), 0) :
                         1 + Math.min(Math.max(slide[0].progress, -1), 0);
+                if (slideOpacity > 0 && slideOpacity < 1) {
+                    s.effects.fade.fadeIndex = i;
+                }
                 slide
                     .css({
                         opacity: slideOpacity
@@ -26,6 +31,19 @@ s.effects = {
         },
         setTransition: function (duration) {
             s.slides.transition(duration);
+            if (s.params.virtualTranslate && duration !== 0) {
+                var fadeIndex = s.effects.fade.fadeIndex !== null ? s.effects.fade.fadeIndex : s.activeIndex;
+                if (!(s.params.loop || s.params.fade.crossFade) && fadeIndex === 0) {
+                    fadeIndex = s.slides.length - 1;
+                }
+                s.slides.eq(fadeIndex).transitionEnd(function () {
+                    if (!s) return;
+                    var triggerEvents = ['webkitTransitionEnd', 'transitionend', 'oTransitionEnd', 'MSTransitionEnd', 'msTransitionEnd'];
+                    for (var i = 0; i < triggerEvents.length; i++) {
+                        s.wrapper.trigger(triggerEvents[i]);
+                    }
+                });
+            }
         }
     },
     cube: {
@@ -186,8 +204,8 @@ s.effects = {
             }
 
             //Set correct perspective for IE10
-            if (window.navigator.pointerEnabled || window.navigator.msPointerEnabled) {
-                var ws = s.wrapper.style;
+            if (s.browser.ie) {
+                var ws = s.wrapper[0].style;
                 ws.perspectiveOrigin = center + 'px 50%';
             }
         },
